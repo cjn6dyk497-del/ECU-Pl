@@ -200,12 +200,16 @@ function setTab(name) {
   else sizeCanvases();
 }
 
-// Size canvases to fit their wrapper divs
+// Size canvases based on available viewport space
 function sizeCanvases() {
+  // header ~38px, tabs ~30px, metrics bar ~52px, gaps ~32px
+  const vAvail = window.innerHeight - 152;
+  const vHalf = Math.floor(vAvail / 2) - 8;
+  const hHalf = Math.floor(window.innerWidth / 2) - 20;
+  const sz = Math.max(60, Math.min(vHalf, hHalf));
   for (const g of Object.values(gauges)) {
-    const wrap = g.canvas.parentElement;
-    const sz = Math.min(wrap.clientWidth, wrap.clientHeight);
-    if (sz > 10) { g.canvas.width = sz; g.canvas.height = sz; }
+    g.canvas.width = sz;
+    g.canvas.height = sz;
   }
   renderGauges();
 }
