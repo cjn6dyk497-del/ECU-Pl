@@ -44,7 +44,14 @@ body { background: #111; color: #eee; font-family: 'Segoe UI', sans-serif; overf
 .tab-panel.active { display: block; }
 
 /* Live layout */
+#tab-live {
+  height: calc(100vh - 68px);
+  display: flex;
+  flex-direction: column;
+}
 #gauge-area {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -62,6 +69,7 @@ canvas { display: block; }
   gap: 6px;
   padding: 6px 8px;
   justify-content: center;
+  flex-shrink: 0;
 }
 .mc { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 3px 10px; text-align: center; flex: 1; }
 .mc .ml { font-size: 0.55rem; color: #777; text-transform: uppercase; }
@@ -120,11 +128,11 @@ canvas { display: block; }
 
 <script>
 function calcSz() {
-  // 2 gauge rows + metrics bar must fit in viewport
-  // each row gets ~38% of viewport height, width limited to half screen
-  const byH = Math.floor(window.innerHeight * 0.27);
-  const byW = Math.floor(window.innerWidth * 0.44);
-  return Math.max(60, Math.min(byH, byW));
+  // gauge-area is flex:1 inside tab-live, so its clientHeight = available space after metrics
+  const areaH = document.getElementById('gauge-area').clientHeight;
+  const rowH = Math.floor(areaH / 2) - 22; // two rows, minus labels + gaps
+  const colW = Math.floor(window.innerWidth / 2) - 20;
+  return Math.max(50, Math.min(rowH, colW));
 }
 
 const gauges = {
@@ -169,7 +177,8 @@ function renderGauges() {
   for (const g of Object.values(gauges)) drawGauge(g.canvas,g.val,g.min,g.max,g.unit,g.color);
 }
 
-applySize();
+// Wait for layout before measuring
+requestAnimationFrame(() => requestAnimationFrame(applySize));
 
 // --- tabs ---
 function setTab(name) {
