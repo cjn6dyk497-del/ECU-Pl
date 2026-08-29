@@ -119,16 +119,12 @@ canvas { display: block; }
 </div>
 
 <script>
-// --- sizing ---
-// fixed chrome heights: header 38 + tabs 30 + gauge-area padding 12 + label 16 + row gap 6 + metrics ~52 + padding 12 = ~166
-const CHROME = 168;
-const METRIC_H = 52;
-
 function calcSz() {
-  const avail = window.innerHeight - CHROME - METRIC_H;
-  const rowH = Math.floor(avail / 2) - 8;
-  const colW = Math.floor(window.innerWidth / 2) - 14;
-  return Math.max(50, Math.min(rowH, colW));
+  // 2 gauge rows + metrics bar must fit in viewport
+  // each row gets ~38% of viewport height, width limited to half screen
+  const byH = Math.floor(window.innerHeight * 0.36);
+  const byW = Math.floor(window.innerWidth * 0.44);
+  return Math.max(60, Math.min(byH, byW));
 }
 
 const gauges = {
