@@ -6,143 +6,122 @@
 <title>ECU Monitor - BMW E46 320d</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #111; color: #eee; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+html, body { height: 100%; overflow: hidden; background: #111; color: #eee; font-family: 'Segoe UI', sans-serif; }
 
 header {
   background: #1a1a1a;
-  padding: 10px 20px;
+  padding: 6px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 2px solid #333;
+  flex-shrink: 0;
 }
-header h1 { font-size: 1.1rem; color: #ccc; letter-spacing: 2px; text-transform: uppercase; }
-#status-dot {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: #555; transition: background 0.3s;
-}
-#status-dot.ok { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
-#status-dot.err { background: #e74c3c; box-shadow: 0 0 8px #e74c3c; }
+header h1 { font-size: 0.9rem; color: #ccc; letter-spacing: 2px; text-transform: uppercase; }
+#status-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; transition: background 0.3s; }
+#status-dot.ok { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+#status-dot.err { background: #e74c3c; box-shadow: 0 0 6px #e74c3c; }
 
 .tabs {
   display: flex;
   gap: 4px;
-  padding: 0 20px;
+  padding: 0 16px;
   background: #1a1a1a;
   border-bottom: 1px solid #333;
+  flex-shrink: 0;
 }
 .tab-btn {
-  padding: 8px 20px;
+  padding: 5px 16px;
   background: none;
   border: none;
   color: #888;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
 }
 .tab-btn.active { color: #3498db; border-bottom-color: #3498db; }
 
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
+/* Full-height layout */
+body { display: flex; flex-direction: column; }
+.tab-panel { display: none; flex: 1; overflow: hidden; }
+.tab-panel.active { display: flex; flex-direction: column; }
 
-/* Live tab */
+/* Live tab: gauges + metrics fill remaining space */
+#tab-live {
+  padding: 8px;
+  gap: 8px;
+}
+
 .gauge-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 16px;
-  max-width: 900px;
-  margin: 0 auto;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
 }
 .gcell {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  min-height: 0;
 }
 .gcell-boost {
   grid-column: 1 / 3;
-  width: 44%;
+  width: 40%;
   justify-self: center;
 }
 .gauge-label {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: #888;
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
 }
-canvas { width: 100%; height: auto; display: block; }
+.gauge-wrap {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+canvas { display: block; }
 
-/* Metrics bar */
+/* Metrics bar — compact fixed height */
 .metrics-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 0 16px 16px;
-  max-width: 900px;
-  margin: 0 auto;
+  gap: 6px;
+  flex-shrink: 0;
   justify-content: center;
 }
 .metric-card {
   background: #1e1e1e;
   border: 1px solid #333;
-  border-radius: 10px;
-  padding: 10px 18px;
+  border-radius: 8px;
+  padding: 4px 10px;
   text-align: center;
-  min-width: 110px;
   flex: 1;
 }
-.metric-card .m-label {
-  font-size: 0.65rem;
-  color: #777;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.metric-card .m-val {
-  font-size: 1.4rem;
-  font-weight: bold;
-  color: #eee;
-  margin-top: 2px;
-}
-.metric-card .m-unit {
-  font-size: 0.65rem;
-  color: #555;
-}
+.metric-card .m-label { font-size: 0.55rem; color: #777; text-transform: uppercase; letter-spacing: 0.5px; }
+.metric-card .m-val { font-size: 1.1rem; font-weight: bold; color: #eee; }
+.metric-card .m-unit { font-size: 0.55rem; color: #555; }
 
 /* Error tab */
-.error-panel {
-  max-width: 600px;
-  margin: 30px auto;
-  padding: 0 16px;
-}
-.error-panel h2 { font-size: 1rem; color: #aaa; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
-#scan-btn {
-  background: #2980b9;
-  color: #fff;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  margin-bottom: 20px;
-  transition: background 0.2s;
-}
+.error-panel { max-width: 600px; margin: 20px auto; padding: 0 16px; overflow-y: auto; }
+.error-panel h2 { font-size: 0.9rem; color: #aaa; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+#scan-btn { background: #2980b9; color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; margin-bottom: 16px; }
 #scan-btn:hover { background: #3498db; }
 #scan-btn:disabled { background: #444; cursor: default; }
 #dtc-list { list-style: none; }
-#dtc-list li {
-  background: #1e1e1e;
-  border-left: 3px solid #e74c3c;
-  padding: 10px 14px;
-  margin-bottom: 8px;
-  border-radius: 0 8px 8px 0;
-  font-size: 0.9rem;
-}
-#dtc-list li .code { font-weight: bold; color: #e74c3c; margin-right: 10px; }
+#dtc-list li { background: #1e1e1e; border-left: 3px solid #e74c3c; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 8px 8px 0; font-size: 0.85rem; }
+#dtc-list li .code { font-weight: bold; color: #e74c3c; margin-right: 8px; }
 #dtc-list li .desc { color: #bbb; }
-#dtc-status { color: #666; font-size: 0.85rem; margin-top: 8px; }
-#no-dtc { color: #2ecc71; font-size: 0.95rem; display: none; }
+#dtc-status { color: #666; font-size: 0.8rem; margin-top: 6px; }
+#no-dtc { color: #2ecc71; font-size: 0.9rem; display: none; }
 </style>
 </head>
 <body>
@@ -156,20 +135,19 @@ canvas { width: 100%; height: auto; display: block; }
   <button class="tab-btn" onclick="setTab('errors')">Erros</button>
 </div>
 
-<!-- Live Tab -->
 <div id="tab-live" class="tab-panel active">
   <div class="gauge-grid">
     <div class="gcell">
       <div class="gauge-label">RPM</div>
-      <canvas id="c-rpm" width="300" height="300"></canvas>
+      <div class="gauge-wrap"><canvas id="c-rpm"></canvas></div>
     </div>
     <div class="gcell">
       <div class="gauge-label">Velocidade</div>
-      <canvas id="c-speed" width="300" height="300"></canvas>
+      <div class="gauge-wrap"><canvas id="c-speed"></canvas></div>
     </div>
     <div class="gcell gcell-boost">
       <div class="gauge-label">Pressão Turbo</div>
-      <canvas id="c-boost" width="300" height="300"></canvas>
+      <div class="gauge-wrap"><canvas id="c-boost"></canvas></div>
     </div>
   </div>
 
@@ -202,7 +180,6 @@ canvas { width: 100%; height: auto; display: block; }
   </div>
 </div>
 
-<!-- Errors Tab -->
 <div id="tab-errors" class="tab-panel">
   <div class="error-panel">
     <h2>Códigos de Erro (DTC)</h2>
@@ -214,107 +191,74 @@ canvas { width: 100%; height: auto; display: block; }
 </div>
 
 <script>
-// ---- Tab control ----
 function setTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   event.target.classList.add('active');
   if (name === 'errors') loadDTC();
+  else sizeCanvases();
 }
 
-// ---- Gauge drawing ----
-function drawGauge(canvas, value, min, max, unit, label, color) {
+// Size canvases to fit their wrapper divs
+function sizeCanvases() {
+  for (const g of Object.values(gauges)) {
+    const wrap = g.canvas.parentElement;
+    const sz = Math.min(wrap.clientWidth, wrap.clientHeight);
+    if (sz > 10) { g.canvas.width = sz; g.canvas.height = sz; }
+  }
+  renderGauges();
+}
+
+function drawGauge(canvas, value, min, max, unit, color) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const cx = W/2, cy = H/2 + 10;
+  const cx = W/2, cy = H/2 + 8;
   const r = Math.min(W, H) * 0.4;
   ctx.clearRect(0, 0, W, H);
-
-  const startA = Math.PI * 0.75;
-  const endA = Math.PI * 2.25;
-  const range = endA - startA;
-
-  // Track background
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, startA, endA);
-  ctx.strokeStyle = '#2a2a2a';
-  ctx.lineWidth = 16;
-  ctx.lineCap = 'round';
-  ctx.stroke();
-
-  // Value arc
+  const startA = Math.PI * 0.75, endA = Math.PI * 2.25, range = endA - startA;
+  ctx.beginPath(); ctx.arc(cx, cy, r, startA, endA);
+  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 14; ctx.lineCap = 'round'; ctx.stroke();
   const pct = Math.max(0, Math.min(1, (value - min) / (max - min)));
   const valA = startA + pct * range;
-  const gradient = ctx.createLinearGradient(cx - r, cy, cx + r, cy);
-  gradient.addColorStop(0, color + 'aa');
-  gradient.addColorStop(1, color);
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, startA, valA);
-  ctx.strokeStyle = gradient;
-  ctx.lineWidth = 16;
-  ctx.lineCap = 'round';
-  ctx.stroke();
-
-  // Tick marks
+  const g = ctx.createLinearGradient(cx-r, cy, cx+r, cy);
+  g.addColorStop(0, color+'99'); g.addColorStop(1, color);
+  ctx.beginPath(); ctx.arc(cx, cy, r, startA, valA);
+  ctx.strokeStyle = g; ctx.lineWidth = 14; ctx.lineCap = 'round'; ctx.stroke();
   for (let i = 0; i <= 10; i++) {
-    const a = startA + (i/10) * range;
-    const inner = i % 5 === 0 ? r - 28 : r - 18;
+    const a = startA + (i/10)*range, inn = i%5===0 ? r-24 : r-15;
     ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a)*inner, cy + Math.sin(a)*inner);
-    ctx.lineTo(cx + Math.cos(a)*(r-8), cy + Math.sin(a)*(r-8));
-    ctx.strokeStyle = i % 5 === 0 ? '#555' : '#333';
-    ctx.lineWidth = i % 5 === 0 ? 2 : 1;
-    ctx.stroke();
+    ctx.moveTo(cx+Math.cos(a)*inn, cy+Math.sin(a)*inn);
+    ctx.lineTo(cx+Math.cos(a)*(r-6), cy+Math.sin(a)*(r-6));
+    ctx.strokeStyle = i%5===0 ? '#555' : '#333'; ctx.lineWidth = i%5===0 ? 2 : 1; ctx.stroke();
   }
-
-  // Needle
-  const needleA = startA + pct * range;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(needleA);
-  ctx.beginPath();
-  ctx.moveTo(-6, 0);
-  ctx.lineTo(r - 20, 0);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = 'round';
-  ctx.stroke();
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(startA + pct*range);
+  ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(r-18, 0);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
   ctx.restore();
-
-  // Center dot
-  ctx.beginPath();
-  ctx.arc(cx, cy, 6, 0, Math.PI*2);
-  ctx.fillStyle = '#fff';
-  ctx.fill();
-
-  // Value text
-  ctx.fillStyle = '#fff';
-  ctx.font = `bold ${W*0.16}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(Math.round(value), cx, cy + r * 0.35);
-
-  // Unit
-  ctx.fillStyle = '#888';
-  ctx.font = `${W*0.07}px sans-serif`;
-  ctx.fillText(unit, cx, cy + r * 0.55);
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = `bold ${W*0.15}px monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(Math.round(value), cx, cy + r*0.33);
+  ctx.fillStyle = '#888'; ctx.font = `${W*0.07}px sans-serif`;
+  ctx.fillText(unit, cx, cy + r*0.52);
 }
 
 const gauges = {
-  rpm:   { canvas: document.getElementById('c-rpm'),   min:0,   max:5000, unit:'rpm',  color:'#3498db', val:0 },
-  speed: { canvas: document.getElementById('c-speed'), min:0,   max:260,  unit:'km/h', color:'#2ecc71', val:0 },
-  boost: { canvas: document.getElementById('c-boost'), min:-1,  max:2.5,  unit:'bar',  color:'#e67e22', val:0 },
+  rpm:   { canvas: document.getElementById('c-rpm'),   min:0,  max:5000, unit:'rpm',  color:'#3498db', val:0 },
+  speed: { canvas: document.getElementById('c-speed'), min:0,  max:260,  unit:'km/h', color:'#2ecc71', val:0 },
+  boost: { canvas: document.getElementById('c-boost'), min:-1, max:2.5,  unit:'bar',  color:'#e67e22', val:0 },
 };
 
 function renderGauges() {
-  for (const [k, g] of Object.entries(gauges)) {
-    drawGauge(g.canvas, g.val, g.min, g.max, g.unit, k, g.color);
-  }
+  for (const g of Object.values(gauges))
+    drawGauge(g.canvas, g.val, g.min, g.max, g.unit, g.color);
 }
-renderGauges();
 
-// ---- WebSocket ----
+window.addEventListener('resize', sizeCanvases);
+// Initial sizing after layout settles
+requestAnimationFrame(() => requestAnimationFrame(sizeCanvases));
+
 const dot = document.getElementById('status-dot');
 function connect() {
   const ws = new WebSocket(`ws://${location.host}/ws`);
@@ -329,71 +273,54 @@ function connect() {
     if (d.speed !== undefined) gauges.speed.val = d.speed;
     if (d.boost !== undefined) gauges.boost.val = d.boost;
     renderGauges();
-    set('m-coolant',  d.coolant,      '--');
-    set('m-intake',   d.intake_temp,  '--');
-    set('m-throttle', d.throttle,     '--');
-    set('m-timing',   d.timing,       '--');
-    set('m-voltage',  d.voltage,      '--');
+    const s = (id, v) => document.getElementById(id).textContent = v !== undefined ? v : '--';
+    s('m-coolant', d.coolant); s('m-intake', d.intake_temp);
+    s('m-throttle', d.throttle); s('m-timing', d.timing); s('m-voltage', d.voltage);
   };
-}
-function set(id, val, fallback) {
-  document.getElementById(id).textContent = val !== undefined ? val : fallback;
 }
 connect();
 
-// ---- DTC ----
 async function loadDTC() {
-  const r = await fetch('/dtc');
-  const d = await r.json();
+  const r = await fetch('/dtc'), d = await r.json();
   const list = document.getElementById('dtc-list');
   const noEl = document.getElementById('no-dtc');
-  const status = document.getElementById('dtc-status');
+  const st = document.getElementById('dtc-status');
   list.innerHTML = '';
-  if (!d.scanned) { status.textContent = 'Ainda não pesquisado.'; noEl.style.display='none'; return; }
-  if (d.error) { status.textContent = 'Erro na leitura de DTCs.'; noEl.style.display='none'; return; }
-  if (d.codes.length === 0) {
-    noEl.style.display = 'block';
-    status.textContent = '';
-  } else {
+  if (!d.scanned) { st.textContent = 'Ainda não pesquisado.'; noEl.style.display='none'; return; }
+  if (d.error)    { st.textContent = 'Erro na leitura de DTCs.'; noEl.style.display='none'; return; }
+  if (d.codes.length === 0) { noEl.style.display = 'block'; st.textContent = ''; }
+  else {
     noEl.style.display = 'none';
-    d.codes.forEach(code => {
+    d.codes.forEach(c => {
       const li = document.createElement('li');
-      li.innerHTML = `<span class="code">${code}</span><span class="desc">${dtcDesc(code)}</span>`;
+      li.innerHTML = `<span class="code">${c}</span><span class="desc">${dtcDesc(c)}</span>`;
       list.appendChild(li);
     });
-    status.textContent = '';
   }
-  if (d.scanned) {
-    const ago = Math.round((Date.now()/1000) - d.scanned);
-    status.textContent += ` (pesquisado há ${ago}s)`;
-  }
+  if (d.scanned) st.textContent = `(pesquisado há ${Math.round((Date.now()/1000)-d.scanned)}s)`;
 }
 
 async function reqScan() {
   const btn = document.getElementById('scan-btn');
   btn.disabled = true; btn.textContent = 'A pesquisar...';
   await fetch('/dtc/scan', {method:'POST'});
-  setTimeout(async () => {
-    await loadDTC();
-    btn.disabled = false; btn.textContent = 'Pesquisar Erros';
-  }, 4000);
+  setTimeout(async () => { await loadDTC(); btn.disabled=false; btn.textContent='Pesquisar Erros'; }, 4000);
 }
 
-function dtcDesc(code) {
-  const descs = {
-    'P0100':'Débito de ar em massa (MAF)', 'P0102':'MAF - sinal baixo', 'P0103':'MAF - sinal alto',
-    'P0110':'Sensor temp admissão', 'P0115':'Sensor temp motor', 'P0120':'Sensor acelerador (TPS)',
-    'P0190':'Sensor pressão combustível', 'P0200':'Circuito injetor', 'P0215':'Relé combustível',
-    'P0335':'Sensor rotação (CKP)', 'P0340':'Sensor árvore de cames (CMP)', 'P0380':'Vela de incandescência A',
-    'P0381':'Vela de incandescência B', 'P0400':'EGR - caudal', 'P0401':'EGR - caudal insuficiente',
-    'P0402':'EGR - caudal excessivo', 'P0405':'Sensor EGR - sinal baixo', 'P0470':'Sensor pressão escape',
-    'P0500':'Sensor velocidade', 'P0540':'Sensor temperatura óleo', 'P0560':'Tensão sistema',
-    'P0600':'CAN bus', 'P0605':'ROM ECU', 'P0606':'ECU processador',
-    'P0700':'Sistema transmissão', 'P1127':'Temperatura turbo', 'P1128':'Temperatura admissão alta',
-    'P1351':'Vela incandescência 1', 'P1352':'Vela incandescência 2', 'P1353':'Vela incandescência 3',
-    'P1354':'Vela incandescência 4',
+function dtcDesc(c) {
+  const m = {
+    'P0100':'Débito de ar em massa (MAF)','P0102':'MAF - sinal baixo','P0103':'MAF - sinal alto',
+    'P0110':'Sensor temp admissão','P0115':'Sensor temp motor','P0120':'Sensor acelerador (TPS)',
+    'P0190':'Sensor pressão combustível','P0200':'Circuito injetor','P0215':'Relé combustível',
+    'P0335':'Sensor rotação (CKP)','P0340':'Sensor árvore de cames (CMP)','P0380':'Vela incandescência A',
+    'P0381':'Vela incandescência B','P0400':'EGR - caudal','P0401':'EGR - caudal insuficiente',
+    'P0402':'EGR - caudal excessivo','P0405':'Sensor EGR - sinal baixo','P0470':'Sensor pressão escape',
+    'P0500':'Sensor velocidade','P0540':'Sensor temperatura óleo','P0560':'Tensão sistema',
+    'P0600':'CAN bus','P0605':'ROM ECU','P0606':'ECU processador',
+    'P0700':'Sistema transmissão','P1351':'Vela incandescência 1','P1352':'Vela incandescência 2',
+    'P1353':'Vela incandescência 3','P1354':'Vela incandescência 4',
   };
-  return descs[code] || 'Código de erro desconhecido';
+  return m[c] || 'Código de erro desconhecido';
 }
 </script>
 </body>
