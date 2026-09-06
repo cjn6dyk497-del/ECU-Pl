@@ -125,6 +125,36 @@ class KLineOBD:
         self._slow_idx += 1
         return self.read_set(pids)
 
+    def query09(self, pid):
+        """Serviço 0x09 — informação do veículo, em várias tramas."""
+        self._write([0x68, 0x6A, 0xF1, 0x09, pid])
+        time.sleep(0.055)
+        chunks = []
+        old, self.ser.timeout = self.ser.timeout, 0.4
+        try:
+            for _ in range(8):
+                r = self._read()
+                if not r: break
+                if len(r) >= 8 and r[3] == 0x49 and r[4] == pid:
+                    chunks.append(bytes(r[6:-1]))   # r[5] numera a trama
+        finally:
+            self.ser.timeout = old
+        self.ser.reset_input_buffer()
+        return b"".join(chunks) if chunks else None
+
+    def read_vehicle_info(self):
+        """VIN, identificação de calibração e nome da centralina.
+
+        O Cal ID é o que distingue uma EDC15 de uma EDC16 sem teres de
+        ir ver a etiqueta debaixo do painel.
+        """
+        out = {}
+        for pid, key in ((0x02, 'vin'), (0x04, 'cal_id'), (0x0A, 'ecu_name')):
+            d = self.query09(pid)
+            if d:
+                out[key] = d.decode('latin-1', 'replace').strip('\x00 ')
+        return out
+
     def scan_dtc(self):
         try:
             self._write([0x68, 0x6A, 0xF1, 0x03])
@@ -426,6 +456,7 @@ _job_done = threading.Event()
 
 _cycle_times = deque(maxlen=20)
 _snapshots = {}                 # rótulo -> {lid: hex}
+_last_error = None              # para não teres de ler a consola no carro
 
 # captura de transitório
 _trace = {
@@ -446,8 +477,45 @@ def _poll_hz():
 # ══════════════════════════════════════════════════════════════════
 #  Trabalhos que precisam da porta série
 # ══════════════════════════════════════════════════════════════════
+def _probe_addresses(port, addrs, inits):
+    """Tenta abrir sessão em cada endereço e diz quais respondem.
+
+    Corre com a porta livre — quem chama fecha a ligação antes.
+    """
+    results = []
+    for addr in addrs:
+        for init in inits:
+            entry = {'addr': f"0x{addr:02X}", 'init': init}
+            try:
+                k = KWP2000(port, ecu_addr=addr, init=init)
+            except Exception as e:
+                entry.update({'ok': False, 'error': str(e)[:90]})
+                results.append(entry)
+                time.sleep(0.4)
+                continue
+            entry['ok'] = True
+            entry['key_bytes'] = k.key_bytes.hex()
+            try:
+                raw = k.read_ecu_id(0x80)
+                if raw:
+                    entry['ecuid'] = raw.decode('latin-1', 'replace').strip('\x00 ')
+            except Exception:
+                pass
+            k.close()
+            results.append(entry)
+            time.sleep(0.4)
+    return {'ok': True, 'resultados': results}
+
+
 def _run_job(conn, kind, job):
     op = job.get('op')
+
+    # o único trabalho que corre em modo OBD2
+    if op == 'vehicle':
+        if kind != 'obd2':
+            return {'ok': False, 'error': 'requer modo OBD2'}
+        info = conn.read_vehicle_info()
+        return {'ok': bool(info), **info}
 
     if kind != 'kwp':
         return {'ok': False, 'error': 'requer modo KWP2000'}
@@ -495,7 +563,7 @@ def _run_job(conn, kind, job):
 #  Loop — única thread dona da porta série
 # ══════════════════════════════════════════════════════════════════
 def obd_loop():
-    global _cache, _dtc, _scan_req, _job, _job_result, _mode, _trace
+    global _cache, _dtc, _scan_req, _job, _job_result, _mode, _trace, _last_error
     conn = None
     kind = None
     last_try = 0
@@ -530,6 +598,7 @@ def obd_loop():
                 kind = want
             except Exception as e:
                 print(f"Init erro ({want}): {e}")
+                _last_error = f"init {want}: {e}"
                 conn = None
                 if want == 'kwp':
                     with _lock: _mode = 'obd2'
@@ -539,6 +608,22 @@ def obd_loop():
         try:
             # ---- trabalho pedido por um endpoint ----
             with _lock: job = _job
+            if job is not None and job.get('op') == 'probe':
+                # o sondar precisa da porta livre, por isso fecha a ligação
+                # actual e deixa o ciclo seguinte reconstruí-la
+                port = find_port()
+                try: conn.close()
+                except Exception: pass
+                conn = None
+                result = (_probe_addresses(port, job['addrs'], job['inits'])
+                          if port else {'ok': False, 'error': 'porta não encontrada'})
+                with _lock:
+                    _job_result = result
+                    _job = None
+                _job_done.set()
+                last_try = 0            # reconecta já no ciclo seguinte
+                continue
+
             if job is not None:
                 result = _run_job(conn, kind, job)
                 with _lock:
@@ -595,6 +680,7 @@ def obd_loop():
 
         except Exception as e:
             print(f"Erro: {e}")
+            _last_error = f"loop: {e}"
             try: conn.close()
             except: pass
             conn = None
@@ -744,6 +830,27 @@ def mode_get():
                              'hz': _poll_hz()})
 
 
+@app.get('/status')
+def status():
+    """Tudo o que interessa saber num pedido só, para o carro."""
+    with _lock:
+        cache = dict(_cache)
+        return JSONResponse({
+            'ligado': cache.get('status') == 'ok',
+            'modo': _mode,
+            'addr': f"0x{_kwp_addr:02X}",
+            'init': _kwp_init,
+            'hz': _poll_hz(),
+            'canais_mapeados': len(MEAS),
+            'canais_activos': sorted(k for k in cache
+                                     if k not in ('status','mode','hz','trace','note')),
+            'trace': _trace['state'],
+            'retratos': sorted(_snapshots.keys()),
+            'ultimo_erro': _last_error,
+            'porta': find_port(),
+        })
+
+
 @app.post('/mode/{name}')
 def mode_set(name: str, addr: int = 0x12, init: str = 'fast'):
     global _mode, _kwp_addr, _kwp_init
@@ -811,6 +918,37 @@ def kwp_diff(a: str, b: str):
     rows.sort(key=lambda r: abs(r.get('delta_u16') or r['delta_u8']), reverse=True)
     return JSONResponse({'ok': True, 'a': a, 'b': b,
                          'alterados': len(rows), 'linhas': rows[:120]})
+
+
+@app.get('/vehicle')
+def vehicle():
+    """VIN, Cal ID e nome da centralina, via serviço 0x09 em modo OBD2.
+
+    O Cal ID identifica a centralina sem teres de ir ver a etiqueta.
+    """
+    return JSONResponse(_queue_job({'op': 'vehicle'}, 20.0))
+
+
+@app.post('/kwp/probe')
+def kwp_probe(addrs: str = '0x12', inits: str = 'fast,slow'):
+    """Tenta abrir sessão em vários endereços e diz quais respondem.
+
+    Usa-se quando o 0x12 não pega. Fecha a ligação actual enquanto sonda
+    e volta a ligar a seguir, por isso o painel pisca alguns segundos.
+    """
+    try:
+        addr_list = [int(a, 0) for a in addrs.split(',') if a.strip()]
+    except ValueError:
+        return JSONResponse({'ok': False, 'error': 'endereços inválidos'}, 400)
+    init_list = [i.strip() for i in inits.split(',')
+                 if i.strip() in ('fast', 'slow')]
+    if not addr_list or not init_list:
+        return JSONResponse({'ok': False, 'error': 'nada para sondar'}, 400)
+    if _engine_running():
+        return JSONResponse({'ok': False,
+            'error': 'sonda com o motor parado e a ignição ligada'}, 409)
+    return JSONResponse(_queue_job(
+        {'op': 'probe', 'addrs': addr_list, 'inits': init_list}, 120.0))
 
 
 @app.get('/kwp/lid/{lid}')
