@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECU Monitor - BMW E46 320d</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #111; color: #eee; font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100vh; }
+
+#header {
+  height: 38px;
+  background: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 2px solid #333;
+}
+#header h1 { font-size: 0.85rem; color: #ccc; letter-spacing: 2px; text-transform: uppercase; }
+#status-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; }
+#status-dot.ok { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+#status-dot.err { background: #e74c3c; box-shadow: 0 0 6px #e74c3c; }
+
+#tabs {
+  height: 30px;
+  background: #1a1a1a;
+  display: flex;
+  border-bottom: 1px solid #333;
+  padding: 0 12px;
+}
+.tab-btn {
+  padding: 0 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.tab-btn.active { color: #3498db; border-bottom-color: #3498db; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Live layout */
+#tab-live {
+  height: calc(100vh - 68px);
+  display: flex;
+  flex-direction: column;
+}
+#gauge-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 8px 0;
+  gap: 6px;
+}
+#gauge-row1 { display: flex; gap: 8px; justify-content: center; }
+#gauge-row2 { display: flex; justify-content: center; }
+.gcell { display: flex; flex-direction: column; align-items: center; }
+.gauge-label { font-size: 0.6rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+canvas { display: block; }
+
+#metrics {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.mc { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 3px 10px; text-align: center; flex: 1; }
+.mc .ml { font-size: 0.55rem; color: #777; text-transform: uppercase; }
+.mc .mv { font-size: 1rem; font-weight: bold; color: #eee; }
+.mc .mu { font-size: 0.55rem; color: #555; }
+
+/* Error tab */
+#tab-errors { padding: 16px; overflow-y: auto; }
+#tab-errors h2 { font-size: 0.9rem; color: #aaa; margin-bottom: 12px; text-transform: uppercase; }
+#scan-btn { background: #2980b9; color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; margin-bottom: 14px; }
+#scan-btn:disabled { background: #444; }
+#dtc-list { list-style: none; }
+#dtc-list li { background: #1e1e1e; border-left: 3px solid #e74c3c; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 8px 8px 0; font-size: 0.85rem; }
+.code { font-weight: bold; color: #e74c3c; margin-right: 8px; }
+.desc { color: #bbb; }
+#dtc-status { color: #666; font-size: 0.75rem; margin-top: 6px; }
+#no-dtc { color: #2ecc71; display: none; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>BMW E46 &bull; ECU Monitor</h1>
+  <div id="status-dot"></div>
+</div>
+<div id="tabs">
+  <button class="tab-btn active" onclick="setTab('live')">Ao Vivo</button>
+  <button class="tab-btn" onclick="setTab('errors')">Erros</button>
+</div>
+
+<div id="tab-live" class="tab-panel active">
+  <div id="gauge-area">
+    <div id="gauge-row1">
+      <div class="gcell"><div class="gauge-label">RPM</div><canvas id="c-rpm"></canvas></div>
+      <div class="gcell"><div class="gauge-label">Velocidade</div><canvas id="c-speed"></canvas></div>
+    </div>
+    <div id="gauge-row2">
+      <div class="gcell"><div class="gauge-label">Pressão Turbo</div><canvas id="c-boost"></canvas></div>
+    </div>
+  </div>
+  <div id="metrics">
+    <div class="mc"><div class="ml">Motor</div><div class="mv" id="m-coolant">--</div><div class="mu">°C</div></div>
+    <div class="mc"><div class="ml">Admissão</div><div class="mv" id="m-intake">--</div><div class="mu">°C</div></div>
+    <div class="mc"><div class="ml">Pedal</div><div class="mv" id="m-throttle">--</div><div class="mu">%</div></div>
+    <div class="mc"><div class="ml">Avanço</div><div class="mv" id="m-timing">--</div><div class="mu">°</div></div>
+    <div class="mc"><div class="ml">Bateria</div><div class="mv" id="m-voltage">--</div><div class="mu">V</div></div>
+  </div>
+</div>
+
+<div id="tab-errors" class="tab-panel">
+  <h2>Códigos de Erro (DTC)</h2>
+  <button id="scan-btn" onclick="reqScan()">Pesquisar Erros</button>
+  <div id="no-dtc">Nenhum erro encontrado</div>
+  <ul id="dtc-list"></ul>
+  <div id="dtc-status"></div>
+</div>
+
+<script>
+function calcSz() {
+  // gauge-area is flex:1 inside tab-live, so its clientHeight = available space after metrics
+  const areaH = document.getElementById('gauge-area').clientHeight;
+  const rowH = Math.floor(areaH / 2) - 22; // two rows, minus labels + gaps
+  const colW = Math.floor(window.innerWidth / 2) - 20;
+  return Math.max(50, Math.min(rowH, colW));
+}
+
+const gauges = {
+  rpm:   { canvas: document.getElementById('c-rpm'),   min:0,  max:5000, unit:'rpm',  color:'#3498db', val:0 },
+  speed: { canvas: document.getElementById('c-speed'), min:0,  max:260,  unit:'km/h', color:'#2ecc71', val:0 },
+  boost: { canvas: document.getElementById('c-boost'), min:-1, max:2.5,  unit:'bar',  color:'#e67e22', val:0 },
+};
+
+function applySize() {
+  const sz = calcSz();
+  for (const g of Object.values(gauges)) { g.canvas.width = sz; g.canvas.height = sz; }
+  // boost slightly smaller (centered below)
+  gauges.boost.canvas.width = Math.round(sz * 0.85);
+  gauges.boost.canvas.height = Math.round(sz * 0.85);
+  renderGauges();
+}
+
+window.addEventListener('resize', applySize);
+
+function drawGauge(canvas, value, min, max, unit, color) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2 + 8;
+  const r = Math.min(W,H) * 0.4;
+  ctx.clearRect(0, 0, W, H);
+  const sA = Math.PI*0.75, eA = Math.PI*2.25, rng = eA-sA;
+  ctx.beginPath(); ctx.arc(cx,cy,r,sA,eA); ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=13; ctx.lineCap='round'; ctx.stroke();
+  const pct = Math.max(0,Math.min(1,(value-min)/(max-min)));
+  const g = ctx.createLinearGradient(cx-r,cy,cx+r,cy);
+  g.addColorStop(0,color+'99'); g.addColorStop(1,color);
+  ctx.beginPath(); ctx.arc(cx,cy,r,sA,sA+pct*rng); ctx.strokeStyle=g; ctx.lineWidth=13; ctx.lineCap='round'; ctx.stroke();
+  for(let i=0;i<=10;i++){const a=sA+(i/10)*rng,inn=i%5===0?r-22:r-14;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*inn,cy+Math.sin(a)*inn);ctx.lineTo(cx+Math.cos(a)*(r-5),cy+Math.sin(a)*(r-5));ctx.strokeStyle=i%5===0?'#555':'#333';ctx.lineWidth=i%5===0?2:1;ctx.stroke();}
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(sA+pct*rng);
+  ctx.beginPath(); ctx.moveTo(-5,0); ctx.lineTo(r-16,0); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.stroke();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font=`bold ${Math.round(W*0.15)}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(Math.round(value),cx,cy+r*0.33);
+  ctx.fillStyle='#888'; ctx.font=`${Math.round(W*0.07)}px sans-serif`; ctx.fillText(unit,cx,cy+r*0.52);
+}
+
+function renderGauges() {
+  for (const g of Object.values(gauges)) drawGauge(g.canvas,g.val,g.min,g.max,g.unit,g.color);
+}
+
+// Wait for layout before measuring
+requestAnimationFrame(() => requestAnimationFrame(applySize));
+
+// --- tabs ---
+function setTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+  if(name==='errors') loadDTC();
+}
+
+// --- WebSocket ---
+const dot = document.getElementById('status-dot');
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = ()=>dot.className='ok';
+  ws.onclose = ()=>{dot.className='err';setTimeout(connect,2000);};
+  ws.onerror = ()=>ws.close();
+  ws.onmessage = e=>{
+    const d=JSON.parse(e.data);
+    if(d.status!=='ok'){dot.className='err';return;}
+    dot.className='ok';
+    if(d.rpm!==undefined) gauges.rpm.val=d.rpm;
+    if(d.speed!==undefined) gauges.speed.val=d.speed;
+    if(d.boost!==undefined) gauges.boost.val=d.boost;
+    renderGauges();
+    const s=(id,v)=>document.getElementById(id).textContent=v!==undefined?v:'--';
+    s('m-coolant',d.coolant);s('m-intake',d.intake_temp);s('m-throttle',d.throttle);s('m-timing',d.timing);s('m-voltage',d.voltage);
+  };
+}
+connect();
+
+// --- DTC ---
+async function loadDTC(){
+  const r=await fetch('/dtc'),d=await r.json();
+  const list=document.getElementById('dtc-list'),noEl=document.getElementById('no-dtc'),st=document.getElementById('dtc-status');
+  list.innerHTML='';
+  if(!d.scanned){st.textContent='Ainda não pesquisado.';noEl.style.display='none';return;}
+  if(d.error){st.textContent='Erro na leitura.';noEl.style.display='none';return;}
+  if(d.codes.length===0){noEl.style.display='block';st.textContent='';}
+  else{noEl.style.display='none';d.codes.forEach(c=>{const li=document.createElement('li');li.innerHTML=`<span class="code">${c}</span><span class="desc">${dtcDesc(c)}</span>`;list.appendChild(li);});}
+  if(d.scanned)st.textContent=`(pesquisado há ${Math.round((Date.now()/1000)-d.scanned)}s)`;
+}
+async function reqScan(){
+  const btn=document.getElementById('scan-btn');
+  btn.disabled=true;btn.textContent='A pesquisar...';
+  await fetch('/dtc/scan',{method:'POST'});
+  setTimeout(async()=>{await loadDTC();btn.disabled=false;btn.textContent='Pesquisar Erros';},4000);
+}
+function dtcDesc(c){
+  const m={'P0100':'Débito de ar (MAF)','P0115':'Sensor temp motor','P0120':'Sensor acelerador','P0190':'Sensor pressão combustível','P0335':'Sensor rotação (CKP)','P0340':'Sensor árvore cames','P0380':'Vela incandescência A','P0381':'Vela incandescência B','P0400':'EGR','P0401':'EGR caudal insuficiente','P0405':'Sensor EGR','P0500':'Sensor velocidade','P0560':'Tensão sistema','P0600':'CAN bus','P1351':'Vela incandescência 1','P1352':'Vela incandescência 2','P1353':'Vela incandescência 3','P1354':'Vela incandescência 4'};
+  return m[c]||'Código de erro desconhecido';
+}
+</script>
+</body>
+</html>
