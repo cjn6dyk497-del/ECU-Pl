@@ -402,9 +402,9 @@ const BAR_SCHEMES = [
 const LAYOUTS = [{id:'linha',name:'Três em linha'},{id:'classico',name:'Clássico'}];
 /* o MT8163 da unidade não aguenta sombras e vidro a cada frame */
 const EFFECTS = [
-  {id:'baixo',name:'Baixo',fps:24,shadow:false,glass:false},
-  {id:'medio',name:'Médio',fps:30,shadow:false,glass:true},
-  {id:'alto', name:'Alto', fps:60,shadow:true, glass:true},
+  {id:'baixo',name:'Baixo',fps:24,shadow:false,glass:false,maxBack:300},
+  {id:'medio',name:'Médio',fps:30,shadow:false,glass:true, maxBack:360},
+  {id:'alto', name:'Alto', fps:60,shadow:true, glass:true, maxBack:512},
 ];
 
 const wide = window.innerWidth / window.innerHeight > 1.45;
@@ -544,13 +544,17 @@ function drawGauge(cfg,value){
 }
 
 function sizeCanvases(){
-  const dpr=Math.min(window.devicePixelRatio||1, FX().fps>=60?2:1.5);
+  const fx=FX();
+  const dpr=Math.min(window.devicePixelRatio||1, fx.fps>=60?2:1.5);
   for(const g of Object.values(GAUGES)){
     const w=g.canvas.parentElement;
     const side=Math.floor(Math.min(w.clientWidth,w.clientHeight));
     if(side<40) continue;
     g.canvas.style.width=side+'px'; g.canvas.style.height=side+'px';
-    const px=Math.round(side*dpr);
+    /* tecto à resolução interna: num ecrã de 1280x720 o manómetro chega aos
+       420 px, mas desenhá-lo a 360 e deixar o CSS esticar corta ~40% do
+       preenchimento sem que se note à distância do braço */
+    const px=Math.min(Math.round(side*dpr), fx.maxBack);
     if(g.canvas.width!==px){g.canvas.width=px;g.canvas.height=px;g._hub=null;markDirty();}
   }
 }
