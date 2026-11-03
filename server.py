@@ -799,6 +799,24 @@ def _engine_running():
 def root(): return FileResponse('static/index.html')
 
 
+@app.get('/manifest.json')
+def manifest():
+    """Para o painel abrir em ecrã inteiro quando adicionado ao ecrã principal."""
+    return JSONResponse({
+        'name': 'E46 ECU Monitor',
+        'short_name': 'E46 ECU',
+        'start_url': '/',
+        'scope': '/',
+        'display': 'standalone',
+        'orientation': 'landscape',
+        'background_color': '#060404',
+        'theme_color': '#060404',
+        'icons': [
+            {'src': '/static/icon-180.png', 'sizes': '180x180', 'type': 'image/png'},
+        ],
+    })
+
+
 @app.websocket('/ws')
 async def ws_ep(ws: WebSocket):
     await ws.accept()
