@@ -421,7 +421,7 @@ const EFFECTS = [
 const wide = window.innerWidth / window.innerHeight > 1.45;
 const weak = (navigator.hardwareConcurrency || 4) <= 4 || /Android/i.test(navigator.userAgent);
 const DEFAULTS = {pal:0,face:0,bezel:0,num:0,tick:0,needle:0,bar:0,barScheme:0,
-                  layout:wide?0:1, fx:weak?1:2, bright:100};
+                  layout:wide?0:1, layoutAuto:1, fx:weak?1:2, bright:100};
 const S = Object.assign({}, DEFAULTS);
 let custom = null;
 const KEY = 'e46-dash-v3';
@@ -554,7 +554,17 @@ function drawGauge(cfg,value){
   if(fx.glass) paintGlass(ctx,cx,cy,r);
 }
 
+/* O ecrã dividido do rádio muda o tamanho da janela depois do arranque.
+   Enquanto o utilizador não escolher uma disposição à mão, ela acompanha. */
+function autoLayout(){
+  if(!S.layoutAuto) return;
+  const want = (window.innerWidth/window.innerHeight > 1.45) ? 0 : 1;
+  if(S.layout===want) return;
+  S.layout=want; setChips('layout',want); applyChrome(); markDirty(); persist();
+}
+
 function sizeCanvases(){
+  autoLayout();
   const fx=FX();
   const dpr=Math.min(window.devicePixelRatio||1, fx.fps>=60?2:1.5);
   for(const g of Object.values(GAUGES)){
@@ -772,6 +782,7 @@ function select(axis,idx){
   if(axis==='barScheme'){ applyBarScheme(idx); return; }
   S[axis]=idx; setChips(axis,idx);
   if(axis==='pal'){ custom=null; S.barScheme=0; setChips('barScheme',0); applyPalette(); syncColors(); }
+  if(axis==='layout') S.layoutAuto=0;
   if(axis==='bar'||axis==='layout') applyChrome();
   if(axis==='layout'||axis==='fx') requestAnimationFrame(sizeCanvases);
   markDirty(); persist();
@@ -811,7 +822,7 @@ document.getElementById('btn-random').addEventListener('click',()=>{
   }
   mixColors(); applyBarScheme(Math.floor(Math.random()*BAR_SCHEMES.length));});
 document.getElementById('btn-reset').addEventListener('click',()=>{
-  custom=null;
+  custom=null; S.layoutAuto=1;
   for(const ax of AXES){
     if(ax.key==='barScheme'){S.barScheme=0;setChips('barScheme',0);continue;}
     select(ax.key,DEFAULTS[ax.key]);
