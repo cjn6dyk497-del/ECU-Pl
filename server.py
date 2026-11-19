@@ -8,8 +8,12 @@ app = FastAPI()
 
 def find_port():
     import glob as g
-    for p in ["/dev/tty.usbserial-*", "/dev/ttyUSB*"]:
-        m = g.glob(p)
+    # No macOS o mesmo cabo aparece como cu.* e como tty.*. O cu.* abre
+    # sem esperar por carrier detect, por isso vem primeiro — abrir o
+    # tty.* pode ficar pendurado. No Linux é ttyUSB*.
+    for p in ["/dev/cu.usbserial-*", "/dev/tty.usbserial-*",
+              "/dev/ttyUSB*", "/dev/cu.usbmodem*"]:
+        m = sorted(g.glob(p))
         if m: return m[0]
     return None
 
