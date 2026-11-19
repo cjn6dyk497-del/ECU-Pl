@@ -85,6 +85,53 @@ O registo fica em `/var/log`, que com o *overlay* activo vive em RAM e
 desaparece a cada arranque. Para esta finalidade serve — lê-se na mesma
 sessão.
 
+## Inspeccionar a unidade a fundo
+
+O registo DNS mostra comportamento. Para ver o que está instalado, há o
+`varrer-radio.sh` — corre no Mac, fala com a unidade por `adb` e produz um
+relatório. **Só lê**: não instala, não desinstala, não altera definições.
+
+```bash
+brew install --cask android-platform-tools
+./varrer-radio.sh 192.168.1.50
+```
+
+Cobre a identidade real do sistema, root, aplicações de terceiros com as
+permissões sensíveis que têm concedidas, quem pode instalar outras
+aplicações, administradores de dispositivo, serviços de acessibilidade e
+leitores de notificações, APKs da ROM, portas à escuta, o ficheiro `hosts` e
+certificados de raiz acrescentados.
+
+### Não é por cabo
+
+As portas USB da unidade são portas de *host* — existem para pens e dongles.
+O USB-C de um portátil também é host, e um cabo entre dois hosts não
+estabelece nada. Estas unidades não expõem porta de dispositivo. O `adb` aqui
+vai **por rede**.
+
+### Pôr os dois na mesma rede
+
+O mais limpo é a partilha de rede do iPhone: liga o rádio e o Mac ao mesmo
+*hotspot*. Ficam os dois na mesma sub-rede, a falar um com o outro, e a tua
+rede de casa não entra na história.
+
+O IP da unidade vê-se nela: Definições → WiFi → toca na rede.
+
+### Activar o adb no rádio
+
+Muitas destas unidades já vêm com a porta 5555 aberta de origem — vale a pena
+tentar `adb connect` antes de mexer em nada. Se não pegar:
+
+1. Definições → Acerca → toca 7 vezes em "Número de compilação"
+2. Opções de desenvolvedor → **Depuração USB** ligada
+3. Se houver "Depuração sem fios" (Android 11+), liga e usa o código:
+   `adb pair <ip>:<porta>` e só depois `adb connect <ip>:5555`
+4. Pode aparecer um pedido de autorização **no ecrã do rádio** — aceita
+
+Se a 5555 estiver aberta sem teres feito nada disto, isso é em si um achado:
+qualquer pessoa na mesma rede instala o que quiser na unidade. Depois de
+acabares, desliga a depuração.
+
 ## Correr no Mac ou num portátil
 
 ```bash
