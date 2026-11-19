@@ -46,6 +46,45 @@ Falta um passo no fim, e é o que faz o cartão durar:
 Põe o sistema em só-leitura, para cortar a ignição não corromper o cartão.
 Faz isso só depois de confirmares que tudo funciona.
 
+## Ver o que o rádio tenta contactar
+
+Estas unidades Android não têm origem verificável e é comum virem com
+*adware*. O Pi dá-te forma de o ver sem instalar nada na unidade: como ele
+serve DHCP e DNS à sua própria rede, todos os nomes que o rádio procura
+passam por lá. O `pi-setup.sh` liga o registo.
+
+```bash
+tail -f /var/log/ecu-dns.log
+```
+
+Ou só os nomes, por frequência:
+
+```bash
+grep -oE 'query\[[A-Z]+\] [^ ]+' /var/log/ecu-dns.log \
+  | awk '{print $2}' | sort | uniq -c | sort -rn | head -40
+```
+
+Uma unidade limpa procura pouco: `connectivitycheck.gstatic.com`,
+`time.android.com`, os domínios da Google e o que tu abrires. Nomes de
+plataformas de telemetria a repetir-se sozinhos — `umeng`, `talkingdata`,
+`adsmogo` e companhia — dizem-te o que lá está.
+
+Como o Pi **não tem internet**, as consultas falham. Mas ficam registadas: vês
+o que a unidade tenta alcançar sem que chegue lá.
+
+Dois senões honestos:
+
+- No rádio, **Definições → Rede → DNS privado → Desligado**. Em automático, o
+  Android cifra as consultas para um servidor próprio e passa ao lado disto.
+- Isto mostra **comportamento, não integridade**. Se a própria ROM estiver
+  comprometida, nada que corra dentro do Android — nem um antivírus — o
+  encontra. Por isso: não entres com a tua conta Google principal na unidade,
+  e mantém-na fora da rede de casa.
+
+O registo fica em `/var/log`, que com o *overlay* activo vive em RAM e
+desaparece a cada arranque. Para esta finalidade serve — lê-se na mesma
+sessão.
+
 ## Correr no Mac ou num portátil
 
 ```bash

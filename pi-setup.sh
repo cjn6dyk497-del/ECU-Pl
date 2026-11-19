@@ -67,6 +67,23 @@ udevadm control --reload-rules || true
 # ── acesso à porta série sem sudo ─────────────────────────────────
 usermod -aG dialout "$APP_USER" || true
 
+# ── registo de consultas DNS ──────────────────────────────────────
+# Em modo 'shared' o NetworkManager levanta um dnsmasq próprio para dar
+# DHCP e DNS a esta rede. O rádio recebe 10.42.0.1 como servidor de
+# nomes, por isso tudo o que ele procurar passa por aqui. Como o Pi não
+# tem internet, as consultas falham — mas ficam registadas, e é isso que
+# interessa: mostra o que a unidade tenta contactar sem lá chegar.
+#
+# Escrito antes de levantar a rede, para já estar activo quando subir.
+echo "==> Registo de consultas DNS"
+mkdir -p /etc/NetworkManager/dnsmasq-shared.d
+cat > /etc/NetworkManager/dnsmasq-shared.d/00-log-queries.conf <<'DNSCONF'
+log-queries
+log-dhcp
+log-async=25
+log-facility=/var/log/ecu-dns.log
+DNSCONF
+
 # ── ponto de acesso ───────────────────────────────────────────────
 # O Zero 2 W tem um só rádio de 2,4 GHz: ou é ponto de acesso, ou é
 # cliente, nunca os dois. Fica em ponto de acesso, que é o que funciona
@@ -129,6 +146,16 @@ Verificar:
   systemctl status ecu
   journalctl -u ecu -f
   curl localhost:8000/status
+
+Ver o que o rádio tenta contactar:
+  tail -f /var/log/ecu-dns.log
+  # só os nomes, ordenados por quantas vezes apareceram:
+  grep -oE 'query\[[A-Z]+\] [^ ]+' /var/log/ecu-dns.log \\
+    | awk '{print \$2}' | sort | uniq -c | sort -rn | head -40
+
+No rádio, Definições -> Rede -> DNS privado -> DESLIGADO. Se ficar em
+automático, o Android pede os nomes cifrados a um servidor próprio e passa
+ao lado deste registo.
 
 FALTA UM PASSO, e é o que faz o cartão durar:
 
