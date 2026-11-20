@@ -164,10 +164,26 @@ o que não devia?* — é observar a rede: **NetGuard** na unidade (sem root, co
 
 ## Correr no próprio rádio, sem Pi
 
-Se o rádio reconhecer o cabo, não precisas de mais nada — ele é servidor
-e ecrã ao mesmo tempo. Liga com a ignição e não há IP para escrever.
+> **Testado na Junsun de 9" (MCU `CVD1810-WJ`): não dá.** O cabo é
+> enumerado — ligá-lo faz aparecer o diálogo de acessório USB do Android,
+> e a unidade até traz uma app TPMS que reclama dispositivos deste tipo
+> como "D-CAN". A porta funciona em modo host. Mas `/dev/ttyUSB0` não
+> existe: o kernel não traz o `ftdi_sio`.
+>
+> Sem esse nó em `/dev`, o pyserial não chega ao cabo. O Android deixa as
+> *aplicações* falarem com USB em bruto pela sua própria API, sem driver
+> de kernel, mas o Python não alcança essa API. Nesta unidade, é o Pi.
+>
+> Escrever uma app Android sobre a `usb-serial-for-android` contornaria
+> isto, desde que ela consiga gerar o sinal de *break* que a
+> inicialização a 5 baud exige — mas é trabalho de dias contra os ~25 €
+> de um Pi.
 
-**Primeiro, o teste que decide.** Com o K+DCAN ligado à USB do rádio, no
+Noutra unidade pode dar. Se o rádio reconhecer o cabo ao nível do kernel,
+não precisas de mais nada: ele é servidor e ecrã ao mesmo tempo, liga com
+a ignição e não há IP para escrever.
+
+**O teste que decide.** Com o K+DCAN ligado à USB do rádio, no
 [Termux](https://f-droid.org/packages/com.termux):
 
 ```bash
