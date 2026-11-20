@@ -132,6 +132,36 @@ Se a 5555 estiver aberta sem teres feito nada disto, isso é em si um achado:
 qualquer pessoa na mesma rede instala o que quiser na unidade. Depois de
 acabares, desliga a depuração.
 
+### Quando a unidade não deixa
+
+Nem sempre dá. Numa Junsun de 9" (MCU `CVD1810-WJ`, Android anunciado como 15)
+os sete toques abrem **"Para maior segurança, introduza a palavra-passe do
+dispositivo"** — o pedido do Android pela credencial de bloqueio de ecrã, não
+uma senha de fábrica. As senhas habituais destas unidades (126, 3368, 8888) são
+de menus de engenharia e não servem aqui.
+
+Pior: nessa unidade o **"Bloqueio de ecrã" foi retirado das Definições**, por
+isso a credencial não se vê nem se muda. Uma pesquisa por `bloqueio` devolve
+sons, mensagens e preferências do ecrã de bloqueio, mas não a definição que a
+controla. `depuração`, `ADB` e `programador` não devolvem nada.
+
+Resta pedir a palavra-passe ao vendedor, ou uma reposição de fábrica — que
+apaga a configuração toda e nem sempre limpa definições do fabricante.
+
+Sinais recolhidos sem adb nessa mesma unidade, que já valem alguma coisa:
+
+| Observado | Leitura |
+|---|---|
+| Porta 5555 a recusar ligação | adb por rede não vem aberto de origem — bom |
+| "Não existe nenhuma Conta Google neste dispositivo" | Nada ligado à identidade do dono — bom |
+| Play Protect activo, com análise recente | O scanner da Google corre na unidade |
+| "Acerca" sem patch de segurança, sem kernel, sem modelo | A versão anunciada não é verificável |
+| Bloqueio de ecrã removido da interface, credencial activa | ROM que não se deixa auditar |
+
+Sem o adb, o caminho que responde à pergunta que interessa — *está a comunicar
+o que não devia?* — é observar a rede: **NetGuard** na unidade (sem root, com
+"Gerir aplicações do sistema" ligado), e o registo DNS do Pi descrito acima.
+
 ## Correr no Mac ou num portátil
 
 ```bash
