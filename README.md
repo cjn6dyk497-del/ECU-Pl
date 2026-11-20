@@ -162,6 +162,52 @@ Sem o adb, o caminho que responde à pergunta que interessa — *está a comunic
 o que não devia?* — é observar a rede: **NetGuard** na unidade (sem root, com
 "Gerir aplicações do sistema" ligado), e o registo DNS do Pi descrito acima.
 
+## Correr no próprio rádio, sem Pi
+
+Se o rádio reconhecer o cabo, não precisas de mais nada — ele é servidor
+e ecrã ao mesmo tempo. Liga com a ignição e não há IP para escrever.
+
+**Primeiro, o teste que decide.** Com o K+DCAN ligado à USB do rádio, no
+[Termux](https://f-droid.org/packages/com.termux):
+
+```bash
+ls -l /dev/ttyUSB*
+test -r /dev/ttyUSB0 && echo "ABRE SEM ROOT" || echo "precisa de root"
+id
+su -c id
+```
+
+| Saída do primeiro | Significado |
+|---|---|
+| `crw-rw-rw- … /dev/ttyUSB0` | Aberto a todos — segue |
+| `crw-rw---- root dialout …` | Existe, mas precisa de root |
+| `No such file or directory` | O kernel não traz o `ftdi_sio`. É o Pi |
+
+**Se passar:**
+
+```bash
+pkg install python git
+pip install pyserial
+git clone -b claude/relaxed-galileo-920e6n \
+  https://github.com/cjn6dyk497-del/ECU-Pl.git
+cd ECU-Pl && python servidor-simples.py
+```
+
+E no Chrome do rádio: **`http://localhost:8000`**.
+
+O `servidor-simples.py` existe porque o `server.py` usa FastAPI, que
+arrasta o pydantic, cujo núcleo é Rust e não tem binários para Android —
+no Termux a instalação só passa depois de instalar o compilador de Rust.
+Este usa a biblioteca padrão e o pyserial, que é Python puro.
+
+Troca o WebSocket por *server-sent events*. A página trata dos dois: tenta
+o WebSocket e, se ele fechar sem abrir, passa a SSE. A linha K dá 2 Hz, por
+isso não se perde nada.
+
+Faz OBD2, avarias e identificação da centralina. O KWP2000, os varrimentos
+de blocos e as capturas de transitório ficam no `server.py`, que corre no
+portátil durante o trabalho de descoberta.
+
 ## Correr no Mac ou num portátil
 
 ```bash

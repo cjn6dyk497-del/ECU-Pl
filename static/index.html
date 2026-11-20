@@ -660,25 +660,50 @@ function setOffline(msg){
   for(const id of Object.keys(BAR_RANGE)) setBar(id,null);
 }
 
-function connect(){
-  let ws;
-  try{ ws=new WebSocket('ws://'+location.host+'/ws'); }
-  catch(_){ setTimeout(connect,backoff); return; }
-  ws.onopen=()=>{ backoff=1000; };
-  ws.onclose=()=>{ setOffline('A reconectar…'); setTimeout(connect,backoff); backoff=Math.min(backoff*1.6,8000); };
-  ws.onerror=()=>{ try{ws.close();}catch(_){} };
-  ws.onmessage=e=>{
-    let d; try{ d=JSON.parse(e.data); }catch(_){ return; }
-    if(d.status!=='ok'){
-      setOffline(d.mode?'Servidor ligado, sem dados da centralina ('+d.mode+')':'Sem dados da centralina');
-      return;
-    }
-    live=d; connected=true;
-    linkEl.classList.add('ok');
-    linkT.textContent=(d.mode||'obd2').toUpperCase();
-    linkHz.textContent=d.hz?d.hz.toFixed(1)+'Hz':'';
-    offEl.classList.remove('on');
+function onData(d){
+  if(d.status!=='ok'){
+    setOffline(d.mode?'Servidor ligado, sem dados da centralina ('+d.mode+')':'Sem dados da centralina');
+    return;
+  }
+  live=d; connected=true;
+  linkEl.classList.add('ok');
+  linkT.textContent=(d.mode||'obd2').toUpperCase();
+  linkHz.textContent=d.hz?d.hz.toFixed(1)+'Hz':'';
+  offEl.classList.remove('on');
+}
+
+/* Há dois servidores. O do portátil e o do Pi usam FastAPI e falam
+   WebSocket; o que corre no próprio rádio não pode usar FastAPI e
+   serve server-sent events. A página tenta o WebSocket e, se ele
+   fechar sem nunca ter aberto, passa a SSE e fica assim.            */
+let useSSE=false;
+
+function connectSSE(){
+  let es;
+  try{ es=new EventSource('/stream'); }
+  catch(_){ setTimeout(connectSSE,backoff); return; }
+  es.onopen=()=>{ backoff=1000; };
+  es.onerror=()=>{
+    try{es.close();}catch(_){}
+    setOffline('A reconectar…');
+    setTimeout(connectSSE,backoff); backoff=Math.min(backoff*1.6,8000);
   };
+  es.onmessage=e=>{ let d; try{ d=JSON.parse(e.data); }catch(_){ return; } onData(d); };
+}
+
+function connect(){
+  if(useSSE) return connectSSE();
+  let ws, opened=false;
+  try{ ws=new WebSocket('ws://'+location.host+'/ws'); }
+  catch(_){ useSSE=true; return connectSSE(); }
+  ws.onopen=()=>{ opened=true; backoff=1000; };
+  ws.onclose=()=>{
+    if(!opened){ useSSE=true; return connectSSE(); }
+    setOffline('A reconectar…'); setTimeout(connect,backoff);
+    backoff=Math.min(backoff*1.6,8000);
+  };
+  ws.onerror=()=>{ try{ws.close();}catch(_){} };
+  ws.onmessage=e=>{ let d; try{ d=JSON.parse(e.data); }catch(_){ return; } onData(d); };
 }
 
 let lastFrame=0;
